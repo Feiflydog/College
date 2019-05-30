@@ -1,0 +1,85 @@
+import requests
+from lxml import etree
+import json
+
+"""
+爬取全国大学
+途径：高考派
+
+"""
+class School(object):
+    # 定义初始化方法
+    def __init__(self):
+        self.url = 'http://www.gaokaopai.com/daxue-0-0-0-0-0-0-0--p-{}.html'
+        self.url_list = None
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) '
+                          'AppleWebKit/537.36 (KHTML, like Gecko) '
+                          'Chrome/74.0.3729.108 Safari/537.36'
+        }
+        self.file = open('school.json', 'w')
+
+    def generate_url_list(self):
+        self.url_list = [self.url.format(i) for i in range(1, 306)]
+        print(self.url_list)
+        # return self.url_list
+
+    # 获取数据
+    def get_data(self, url):
+        responses = requests.get(url, headers=self.headers)
+        return responses.content
+
+    # 解析数据
+    def parse_data(self, data):
+        # 实例化etree对象
+        html = etree.HTML(data)
+        # 提取响应数据的节点列表
+        node_list = html.xpath('//div[@class="con"]')
+        # print(len(node_list))
+        data_list = []
+        # 遍历节点列表
+        for node in node_list:
+            temp = {}
+            temp['school'] = node.xpath('./div[1]/h3/a/text()')[0]
+            temp['url'] = node.xpath('./div[1]/h3/a/@href')[0]
+            # 排名
+            # temp['ranking'] = node.xpath('./div[1]/div[@class="like"]/text()')[0]
+            # 性质
+            temp['nature'] = node.xpath('string(./div[@class="s s1"])').split()
+
+            # 博、硕点
+            temp['dot'] = node.xpath('string(./div[@class="s s2"])').split()
+            data_list.append(temp)
+
+        # next_page = html.xpath('//*[@id="schoolPage"]/div/div[4]/div/a[6]/@href')[0]
+        # next_url = 'http://www.gaokaopai.com/' + next_page
+        return data_list
+
+
+    # 保存数据
+    def save_data(self, data_list):
+
+        for data in data_list:
+            str_data = json.dumps(data, ensure_ascii=False) + ",\n"
+            self.file.write(str_data)
+
+    def __del__(self):
+        self.file.close()
+
+
+
+    def run(self):
+        self.generate_url_list()
+        # 循环执行发送请求，传入生成的url列表中的具体页数
+        for url in self.url_list:
+            # 发送请求，获取响应
+            data = self.get_data(url)
+            # 解析数据,返回的是数据列表
+            data_list = self.parse_data(data)
+            # 保存数据
+            self.save_data(data_list)
+
+
+if __name__ == '__main__':
+    school = School()
+    school.run()
